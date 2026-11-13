@@ -1,0 +1,77 @@
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index e3d72b77dd46..8511dae5b6ea 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -186,6 +186,7 @@ extern unsigned int kobjsize(const void *objp);
+ #define VM_ACCOUNT	0x00100000	/* Is a VM accounted object */
+ #define VM_NORESERVE	0x00200000	/* should the VM suppress accounting */
+ #define VM_HUGETLB	0x00400000	/* Huge TLB Page VM */
++#define VM_WIPEONFORK	0x00800000	/* Wipe VMA contents in child. */
+ #define VM_ARCH_1	0x01000000	/* Architecture-specific flag */
+ #define VM_ARCH_2	0x02000000
+ #define VM_DONTDUMP	0x04000000	/* Do not include in the core dump */
+diff --git a/include/uapi/asm-generic/mman-common.h b/include/uapi/asm-generic/mman-common.h
+index 8c27db0c5c08..49e2b1d78093 100644
+--- a/include/uapi/asm-generic/mman-common.h
++++ b/include/uapi/asm-generic/mman-common.h
+@@ -58,6 +58,9 @@
+ 					   overrides the coredump filter bits */
+ #define MADV_DODUMP	17		/* Clear the MADV_DONTDUMP flag */
+ 
++#define MADV_WIPEONFORK 18		/* Zero memory on fork, child only */
++#define MADV_KEEPONFORK 19		/* Undo MADV_WIPEONFORK */
++
+ /* compatibility flags */
+ #define MAP_FILE	0
+ 
+diff --git a/mm/madvise.c b/mm/madvise.c
+index b753f0265384..11eabda7f1a0 100644
+--- a/mm/madvise.c
++++ b/mm/madvise.c
+@@ -89,6 +89,17 @@ static long madvise_behavior(struct vm_area_struct *vma,
+ 		}
+ 		new_flags &= ~VM_DONTDUMP;
+ 		break;
++	case MADV_WIPEONFORK:
++		/* MADV_WIPEONFORK is only supported on private mappings */
++		if (vma->vm_flags & VM_SHARED) {
++			error = -EINVAL;
++			goto out;
++		}
++		new_flags |= VM_WIPEONFORK;
++		break;
++	case MADV_KEEPONFORK:
++		new_flags &= ~VM_WIPEONFORK;
++		break;
+ 	case MADV_MERGEABLE:
+ 	case MADV_UNMERGEABLE:
+ 		error = ksm_madvise(vma, start, end, behavior, &new_flags);
+@@ -623,6 +634,8 @@ madvise_behavior_valid(int behavior)
+ #endif
+ 	case MADV_DONTDUMP:
+ 	case MADV_DODUMP:
++	case MADV_WIPEONFORK:
++	case MADV_KEEPONFORK:
+ 		return true;
+ 
+ 	default:
+diff --git a/mm/memory.c b/mm/memory.c
+old mode 100755
+new mode 100644
+index be6a0ae3e89b..0c7254fc55a5
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -879,6 +879,13 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
+ 	pte_t pte = *src_pte;
+ 	struct page *page;
+ 
++	/*
++	 * MADV_WIPEONFORK: the child must not inherit the parent's data.
++	 * Leave the PTE empty so the child faults in a zero page instead.
++	 */
++	if (unlikely(vm_flags & VM_WIPEONFORK))
++		return 0;
++
+ 	/* pte contains position in swap or file, so copy. */
+ 	if (unlikely(!pte_present(pte))) {
+ 		swp_entry_t entry = pte_to_swp_entry(pte);
