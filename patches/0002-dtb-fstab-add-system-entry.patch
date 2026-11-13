@@ -1,0 +1,19 @@
+diff --git a/arch/arm64/boot/dts/18081/sdm670.dtsi b/arch/arm64/boot/dts/18081/sdm670.dtsi
+index f77c9ea61a30..f3a60c47a21f 100644
+--- a/arch/arm64/boot/dts/18081/sdm670.dtsi
++++ b/arch/arm64/boot/dts/18081/sdm670.dtsi
+@@ -466,6 +466,14 @@
+ 					mnt_flags = "ro,barrier=1,async_discard";
+ 					fsmgr_flags = "wait";
+ 				};
++
++				system {
++					compatible = "android,system";
++					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/system";
++					type = "ext4";
++					mnt_flags = "ro,barrier=1,discard";
++					fsmgr_flags = "wait";
++				};
+ 			};
+ 		};
+ 	};
