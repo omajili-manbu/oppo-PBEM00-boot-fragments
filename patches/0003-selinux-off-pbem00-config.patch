@@ -1,0 +1,16 @@
+diff --git a/arch/arm64/configs/vendor/oplus/PBEM00.config b/arch/arm64/configs/vendor/oplus/PBEM00.config
+index 8d7b66184445..e0893e3d4d4c 100644
+--- a/arch/arm64/configs/vendor/oplus/PBEM00.config
++++ b/arch/arm64/configs/vendor/oplus/PBEM00.config
+@@ -31,3 +31,11 @@ CONFIG_OPPO_HYPNUS=y
+ 
+ # OPPO kevent upload (ported from oppo-source/Reno10X-RenoAce-10.0, unit 34)
+ CONFIG_OPPO_KEVENT_UPLOAD=y
++
++# SELinux off: 4.9 selinux tops out at policy v30 / 75 classes, far below
++# Android 17 (v33 / 108). Policy load would fail in init; disabling SELinux
++# lets init take its native "SELinux is disabled" fast path instead.
++# CONFIG_SECURITY_SELINUX is not set
++# kconfig would auto-promote SMACK to default major LSM once SELinux is gone;
++# we want plain DAC, no MAC LSM at all.
++# CONFIG_SECURITY_SMACK is not set
